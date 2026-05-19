@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, LayoutDashboard, LogOut } from "lucide-react";
+import { Activity, LayoutDashboard, LogOut, QrCode } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession, getSession } from "@/lib/auth";
@@ -58,6 +58,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             <Activity className="w-5 h-5" />
             Visual Flow
+          </Link>
+          <Link
+            href="/dashboard/qr"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium border transition-colors ${pathname === "/dashboard/qr" ? "bg-blue-100 text-blue-900 border-blue-300" : "text-slate-700 border-transparent hover:text-slate-900 hover:bg-slate-200"}`}
+          >
+            <QrCode className="w-5 h-5" />
+            QR Print
           </Link>
         </nav>
         

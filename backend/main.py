@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime, timezone
+import hashlib
+import re
 import pandas as pd
 import io
 import os
@@ -49,6 +51,22 @@ class RenameStationRequest(BaseModel):
     name: str
 
 
+def parse_int_or_max(value: str):
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return 10**9
+
+
+def build_station_qr_id(station_name: str):
+    normalized = str(station_name).strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")
+    if not slug:
+        slug = "station"
+    digest = hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:8]
+    return f"{slug}-{digest}"
+
+
 def station_to_response(station: models.Station, db: Session):
     assignments = db.query(models.Assignment).filter(models.Assignment.station_id == station.id).all()
     employees = [
@@ -64,6 +82,7 @@ def station_to_response(station: models.Station, db: Session):
     ]
     return {
         "id": station.id,
+        "qr_id": build_station_qr_id(station.name),
         "name": station.name,
         "employees": employees,
     }
@@ -93,7 +112,6 @@ async def upload_excel(
         # Full reset: wipe all existing data so the Excel is the source of truth
         db.query(models.Assignment).delete(synchronize_session=False)
         db.query(models.Employee).delete(synchronize_session=False)
-        db.query(models.Station).delete(synchronize_session=False)
         db.commit()
         
         for _, row in df.iterrows():
@@ -161,7 +179,34 @@ def get_stations(db: Session = Depends(get_db)):
         data = station_to_response(station, db)
         if data["employees"]:
             active_stations.append(data)
+
+    def station_order_key(station_data):
+        order_ids = [parse_int_or_max(emp.get("order_id")) for emp in station_data["employees"]]
+        first_order = min(order_ids) if order_ids else 10**9
+        return (first_order, station_data["name"].lower())
+
+    active_stations.sort(key=station_order_key)
     return active_stations
+
+
+@app.get("/qr-stations")
+def get_qr_stations(db: Session = Depends(get_db)):
+    stations = db.query(models.Station).order_by(models.Station.name.asc()).all()
+    result = []
+
+    for station in stations:
+        data = station_to_response(station, db)
+        employee_count = len(data["employees"])
+        result.append(
+            {
+                **data,
+                "active": employee_count > 0,
+                "employee_count": employee_count,
+            }
+        )
+
+    result.sort(key=lambda s: (not s["active"], s["name"].lower()))
+    return result
 
 @app.get("/stations/{station_id}")
 def get_station(station_id: int, db: Session = Depends(get_db)):
@@ -215,6 +260,25 @@ def delete_assignment(assignment_id: int, db: Session = Depends(get_db)):
             db.commit()
 
     return {"message": "Operator removed from station"}
+
+
+@app.delete("/qr-stations/{station_id}")
+def delete_inactive_qr_station(station_id: int, db: Session = Depends(get_db)):
+    station = db.query(models.Station).filter(models.Station.id == station_id).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Station not found")
+
+    assignment_count = (
+        db.query(models.Assignment)
+        .filter(models.Assignment.station_id == station_id)
+        .count()
+    )
+    if assignment_count > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete an active station")
+
+    db.delete(station)
+    db.commit()
+    return {"message": "Inactive station deleted"}
 
 if __name__ == "__main__":
     import uvicorn

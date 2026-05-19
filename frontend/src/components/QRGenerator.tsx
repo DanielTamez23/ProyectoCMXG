@@ -3,13 +3,14 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { Download } from 'lucide-react';
 
-export default function QRGenerator({ stationId, stationName }: { stationId: number, stationName: string }) {
+export default function QRGenerator({ stationRef, stationName }: { stationRef: string, stationName: string }) {
   // Use window.location.origin to point to the current frontend domain/port, 
   // falling back to localhost:3000 during SSR
-  const url = `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/station/${stationId}`;
+  const url = `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/station/${encodeURIComponent(stationRef)}`;
+  const qrElementId = `qr-code-${stationRef.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 
   const downloadQR = () => {
-    const svg = document.getElementById(`qr-code-${stationId}`);
+    const svg = document.getElementById(qrElementId);
     if (!svg) return;
     
     const svgData = new XMLSerializer().serializeToString(svg);
@@ -40,7 +41,7 @@ export default function QRGenerator({ stationId, stationName }: { stationId: num
     <div className="flex flex-col items-center">
       <div className="bg-white p-3 rounded-xl shadow-inner mb-4 border border-slate-200">
         <QRCodeSVG 
-          id={`qr-code-${stationId}`}
+          id={qrElementId}
           value={url} 
           size={140}
           bgColor={"#ffffff"}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Activity, Users, Settings2, ShieldCheck, Cpu } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Activity, Users, Settings2, ShieldCheck, Cpu, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import QRGenerator from "@/components/QRGenerator";
 import { api } from "@/lib/api";
@@ -10,6 +10,25 @@ export default function VisualFlowPage() {
   const [stations, setStations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStation, setSelectedStation] = useState<any | null>(null);
+  const [search, setSearch] = useState("");
+
+  const filteredStations = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return stations;
+
+    return stations.filter((station) => {
+      const baseFields = [station.name, String(station.id), String(station.qr_id ?? "")]
+        .join(" ")
+        .toLowerCase();
+
+      const employeeFields = (station.employees || [])
+        .map((emp: any) => [emp.name, emp.payroll_id, emp.shift, emp.order_id, emp.assignment_id, emp.id].join(" "))
+        .join(" ")
+        .toLowerCase();
+
+      return (baseFields + " " + employeeFields).includes(term);
+    });
+  }, [stations, search]);
 
   useEffect(() => {
     const fetchStations = async () => {
@@ -42,18 +61,31 @@ export default function VisualFlowPage() {
     <div className="space-y-8 animate-fade-in pb-20">
       <header className="flex justify-between items-end mb-10">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Production Line Flow</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-[#152C73] mb-2">Production Line Flow</h1>
           <p className="text-slate-600">Live monitoring of station personnel assignments</p>
         </div>
       </header>
+
+      <div className="max-w-xl">
+        <label className="relative block">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar general: estación, operador, nómina, turno, order ID..."
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#152C73]/20 focus:border-[#152C73]"
+          />
+        </label>
+      </div>
 
       {loading ? (
         <div className="py-20 flex justify-center">
           <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
         </div>
-      ) : stations.length === 0 ? (
+      ) : filteredStations.length === 0 ? (
         <div className="py-12 text-center glass-card">
-          <p className="text-slate-600">No stations active. Please upload a schedule in the Overview tab.</p>
+          <p className="text-slate-600">No matches found for your search.</p>
         </div>
       ) : (
         <div className="relative">
@@ -61,22 +93,18 @@ export default function VisualFlowPage() {
           <div className="absolute top-1/2 left-10 right-10 h-1 bg-slate-300 -translate-y-1/2 z-0 hidden lg:block" />
           
           <div className="flex flex-col lg:flex-row flex-wrap gap-8 justify-center items-center relative z-10">
-            {stations.map((station, idx) => (
+            {filteredStations.map((station, idx) => (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: idx * 0.1 }}
                 key={station.id}
                 onClick={() => setSelectedStation(station)}
-                className={`cursor-pointer transition-all duration-300 transform hover:-translate-y-2 ${selectedStation?.id === station.id ? 'ring-2 ring-blue-700 scale-105' : ''}`}
+                className={`cursor-pointer transition-all duration-300 transform hover:-translate-y-2 ${selectedStation?.id === station.id ? 'ring-2 ring-[#152C73] scale-105' : ''}`}
               >
-                <div className="glass bg-white/90 backdrop-blur-md border border-slate-300 rounded-2xl p-6 w-64 text-center shadow-xl hover:shadow-blue-900/10 hover:border-blue-700/40 relative overflow-hidden group">
-                  
-                  {/* Subtle gradient background based on occupancy */}
-                  <div className={`absolute inset-0 opacity-10 transition-opacity group-hover:opacity-20 ${station.employees.length > 0 ? 'bg-gradient-to-br from-blue-500 to-slate-900' : 'bg-slate-400'}`} />
-                  
-                  <div className="relative z-10 flex flex-col items-center">
-                    <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 shadow-inner ${station.employees.length > 0 ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-slate-100 text-slate-500 border border-slate-300'}`}>
+                <div className="bg-white border border-slate-300 rounded-2xl p-6 w-64 text-center shadow-sm hover:shadow-md hover:border-[#152C73]">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${station.employees.length > 0 ? 'bg-[#152C73] text-white border border-[#152C73]' : 'bg-slate-100 text-slate-500 border border-slate-300'}`}>
                       {getStationIcon(station.name)}
                     </div>
                     <h3 className="text-lg font-bold text-slate-900 mb-1">{station.name}</h3>
@@ -123,7 +151,7 @@ export default function VisualFlowPage() {
               <div className="p-8">
                 <div className="flex justify-between items-start mb-8">
                   <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-sm font-medium mb-3">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#152C73] text-white border border-[#152C73] text-sm font-medium mb-3">
                       Station Details
                     </div>
                     <h2 className="text-2xl font-bold text-slate-900">{selectedStation.name}</h2>
@@ -140,7 +168,7 @@ export default function VisualFlowPage() {
                   {/* QR Code Section */}
                   <div className="p-6 rounded-2xl glass border-slate-300 text-center">
                     <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider mb-4">Station Access QR</h3>
-                    <QRGenerator stationId={selectedStation.id} stationName={selectedStation.name} />
+                    <QRGenerator stationRef={selectedStation.qr_id || String(selectedStation.id)} stationName={selectedStation.name} />
                     <p className="text-xs text-slate-600 mt-4">Print and place this QR code at the physical station.</p>
                   </div>
 
