@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", var(--font-sans);
+  
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-900: #1e3a8a;
+
+  --color-background-start: #f8fafc;
+  --color-background-end: #e2e8f0;
+  --color-surface: rgba(255, 255, 255, 0.88);
+  --color-surface-hover: rgba(255, 255, 255, 0.97);
+  --color-surface-border: rgba(15, 23, 42, 0.15);
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+}
+
+body {
+  color: var(--foreground);
+  background: linear-gradient(to bottom right, var(--color-background-start), var(--color-background-end));
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Glassmorphism utilities */
+.glass {
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-surface-border);
+  box-shadow: 0 8px 30px 0 rgba(15, 23, 42, 0.12);
+}
+
+.glass-card {
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-surface-border);
+  box-shadow: 0 8px 30px 0 rgba(15, 23, 42, 0.12);
+  @apply rounded-2xl p-6 transition-all duration-300;
+}
+
+.glass-card:hover {
+  background: var(--color-surface-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px 0 rgba(15, 23, 42, 0.16);
+}
+
+.glass-input {
+  @apply w-full bg-white/80 border border-slate-300 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-700/30 focus:border-blue-700/60 transition-all;
+}
+
+.btn-primary {
+  @apply relative overflow-hidden bg-blue-600 text-white font-medium rounded-xl px-6 py-3 transition-all duration-300 hover:bg-blue-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] active:scale-95 flex items-center justify-center gap-2;
+}
+
+.btn-secondary {
+  @apply relative overflow-hidden bg-white border border-slate-300 text-slate-800 font-medium rounded-xl px-6 py-3 transition-all duration-300 hover:bg-slate-100 hover:border-slate-400 active:scale-95 flex items-center justify-center gap-2;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.2); 
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.35); 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(30, 41, 59, 0.45); 
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
