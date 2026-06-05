@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogIn, Lock, User, Activity } from "lucide-react";
+import { LogIn, Lock, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { createSession, getAllowedUsers, getSession, saveSession } from "@/lib/auth";
+import CarrierLogo from "@/components/CarrierLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,23 +42,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-blue-500/15 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-slate-500/10 blur-[120px] pointer-events-none" />
-      
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f1f5f9]">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="glass-card w-full max-w-md relative z-10 animate-fade-in"
+        className="glass-card w-full max-w-md animate-fade-in"
       >
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-tr from-blue-700 to-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-700/20">
-            <Activity className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Station Flow</h1>
-          <p className="text-slate-600 mt-2 text-center">Manage production personnel across all stations</p>
+          <CarrierLogo height={56} className="mb-5" />
+          <h1 className="text-2xl font-bold tracking-tight text-[#152C73]">Station Flow</h1>
+          <p className="text-slate-600 mt-2 text-center text-sm">Manage production personnel across all stations</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
@@ -65,7 +60,7 @@ export default function LoginPage() {
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl text-sm text-center"
+              className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm text-center"
             >
               {error}
             </motion.div>
@@ -122,7 +117,7 @@ export default function LoginPage() {
         </form>
         
         <div className="mt-6 text-center">
-          <p className="text-xs text-slate-600">Secure Production Management System v1.0</p>
+          <p className="text-xs text-slate-500">Secure Production Management System v1.0</p>
         </div>
       </motion.div>
     </div>

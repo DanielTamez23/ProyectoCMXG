@@ -8,60 +8,55 @@
   --color-primary-500: #3b82f6;
   --color-primary-600: #2563eb;
   --color-primary-900: #1e3a8a;
+  --color-carrier: #152C73;
 
-  --color-background-start: #f8fafc;
-  --color-background-end: #e2e8f0;
-  --color-surface: rgba(255, 255, 255, 0.88);
-  --color-surface-hover: rgba(255, 255, 255, 0.97);
-  --color-surface-border: rgba(15, 23, 42, 0.15);
+  --color-background: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f8fafc;
+  --color-surface-border: #cbd5e1;
 }
 
 :root {
-  --background: #ffffff;
+  --background: #f1f5f9;
   --foreground: #0f172a;
 }
 
 body {
   color: var(--foreground);
-  background: linear-gradient(to bottom right, var(--color-background-start), var(--color-background-end));
+  background: var(--color-background);
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
 }
 
-/* Glassmorphism utilities */
+/* Card utilities */
 .glass {
   background: var(--color-surface);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--color-surface-border);
-  box-shadow: 0 8px 30px 0 rgba(15, 23, 42, 0.12);
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08);
 }
 
 .glass-card {
   background: var(--color-surface);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--color-surface-border);
-  box-shadow: 0 8px 30px 0 rgba(15, 23, 42, 0.12);
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.08);
   @apply rounded-2xl p-6 transition-all duration-300;
 }
 
 .glass-card:hover {
   background: var(--color-surface-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 36px 0 rgba(15, 23, 42, 0.16);
+  box-shadow: 0 4px 12px 0 rgba(15, 23, 42, 0.1);
 }
 
 .glass-input {
-  @apply w-full bg-white/80 border border-slate-300 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-700/30 focus:border-blue-700/60 transition-all;
+  @apply w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#152C73]/20 focus:border-[#152C73] transition-all;
 }
 
 .btn-primary {
-  @apply relative overflow-hidden bg-blue-600 text-white font-medium rounded-xl px-6 py-3 transition-all duration-300 hover:bg-blue-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] active:scale-95 flex items-center justify-center gap-2;
+  @apply bg-[#152C73] text-white font-medium rounded-xl px-6 py-3 transition-all duration-200 hover:bg-[#1a3585] active:scale-[0.98] flex items-center justify-center gap-2;
 }
 
 .btn-secondary {
-  @apply relative overflow-hidden bg-white border border-slate-300 text-slate-800 font-medium rounded-xl px-6 py-3 transition-all duration-300 hover:bg-slate-100 hover:border-slate-400 active:scale-95 flex items-center justify-center gap-2;
+  @apply bg-white border border-slate-300 text-slate-800 font-medium rounded-xl px-6 py-3 transition-all duration-200 hover:bg-slate-50 hover:border-slate-400 active:scale-[0.98] flex items-center justify-center gap-2;
 }
 
 /* Custom Scrollbar */
@@ -70,14 +65,14 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(148, 163, 184, 0.2); 
+  background: #e2e8f0;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.35); 
+  background: #94a3b8;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(30, 41, 59, 0.45); 
+  background: #64748b;
 }
 
 /* Animations */
@@ -93,3 +88,54 @@ body {
 .stagger-1 { animation-delay: 0.1s; }
 .stagger-2 { animation-delay: 0.2s; }
 .stagger-3 { animation-delay: 0.3s; }
+
+/* QR print: one station per page, large centered QR */
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 0.75in;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  aside {
+    display: none !important;
+  }
+
+  main {
+    overflow: visible !important;
+  }
+
+  main > div {
+    padding: 0 !important;
+  }
+
+  .qr-print-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: min(100%, 760px);
+    margin: 0 auto;
+    min-height: 100vh;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .qr-print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .qr-print-title {
+    font-size: 3.75rem;
+    font-weight: 800;
+    color: #152C73;
+    text-align: center;
+    margin-bottom: 3rem;
+    max-width: 100%;
+    line-height: 1.05;
+  }
+}

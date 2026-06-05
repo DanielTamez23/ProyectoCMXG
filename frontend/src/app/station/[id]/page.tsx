@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Activity, User, Briefcase, MapPin, Loader2, CheckCircle2, Lock, ChevronLeft, ChevronRight, LogIn, Workflow, ArrowUpDown, Clock3 } from "lucide-react";
+import { Activity, User, Briefcase, MapPin, Loader2, CheckCircle2, ChevronLeft, ChevronRight, LogIn, Workflow, ArrowUpDown, Clock3 } from "lucide-react";
 import { motion } from "framer-motion";
 import { createSession, getAllowedUsers, getSession, saveSession } from "@/lib/auth";
 import { api } from "@/lib/api";
+import CarrierLogo from "@/components/CarrierLogo";
 
 type StationEmployee = {
   id: number;
@@ -137,21 +138,17 @@ export default function StationPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[#f1f5f9]">
         <motion.form
           onSubmit={handleAuthSubmit}
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           className="glass-card w-full max-w-md"
         >
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 border border-blue-300 flex items-center justify-center text-blue-900">
-              <Lock className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">Secure QR Access</h1>
-              <p className="text-sm text-slate-600">Log in once to view station QR pages.</p>
-            </div>
+          <div className="flex flex-col items-center mb-6">
+            <CarrierLogo height={48} className="mb-4" />
+            <h1 className="text-lg font-bold text-[#152C73]">Secure QR Access</h1>
+            <p className="text-sm text-slate-600 mt-1">Log in once to view station QR pages.</p>
           </div>
 
           {authError && (
@@ -221,6 +218,9 @@ export default function StationPage() {
     <div className="min-h-screen pb-10">
       <div className="bg-white border-b border-slate-300 px-6 pt-6 pb-8">
         <div className="max-w-5xl mx-auto">
+          <div className="flex justify-center mb-6">
+            <CarrierLogo height={40} />
+          </div>
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-8">
             <div className="inline-flex gap-2">
               <button

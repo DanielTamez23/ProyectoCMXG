@@ -1,12 +1,10 @@
 "use client";
 
-import { QRCodeSVG } from 'qrcode.react';
 import { Download } from 'lucide-react';
+import StationQRCode, { buildStationUrl } from '@/components/StationQRCode';
 
 export default function QRGenerator({ stationRef, stationName }: { stationRef: string, stationName: string }) {
-  // Use window.location.origin to point to the current frontend domain/port, 
-  // falling back to localhost:3000 during SSR
-  const url = `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/station/${encodeURIComponent(stationRef)}`;
+  const url = buildStationUrl(stationRef);
   const qrElementId = `qr-code-${stationRef.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 
   const downloadQR = () => {
@@ -22,7 +20,7 @@ export default function QRGenerator({ stationRef, stationName }: { stationRef: s
       canvas.width = img.width;
       canvas.height = img.height;
       if (ctx) {
-        ctx.fillStyle = "white"; // Background color
+        ctx.fillStyle = "white";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
       }
@@ -40,14 +38,10 @@ export default function QRGenerator({ stationRef, stationName }: { stationRef: s
   return (
     <div className="flex flex-col items-center">
       <div className="bg-white p-3 rounded-xl shadow-inner mb-4 border border-slate-200">
-        <QRCodeSVG 
+        <StationQRCode
           id={qrElementId}
-          value={url} 
+          stationRef={stationRef}
           size={140}
-          bgColor={"#ffffff"}
-          fgColor={"#0f172a"}
-          level={"H"}
-          includeMargin={false}
         />
       </div>
       <a

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import { Download, Printer, RefreshCw, Search } from "lucide-react";
 import { api } from "@/lib/api";
+import StationQRCode, { buildStationUrl } from "@/components/StationQRCode";
 
 type StationEmployee = {
   id: number;
@@ -16,7 +16,7 @@ type StationEmployee = {
 
 type Station = {
   id: number;
-  qr_id?: string;
+  qr_id: string;
   name: string;
   employees: StationEmployee[];
   active: boolean;
@@ -55,12 +55,11 @@ export default function QRPrintPage() {
       const res = await api.get<Station[]>("/qr-stations");
       setStations(res.data);
     } catch (err) {
-      // Backward compatibility: if backend has not been restarted/deployed yet,
-      // use /stations and mark all as active.
       try {
         const fallback = await api.get<any[]>("/stations");
         const mapped: Station[] = fallback.data.map((s) => ({
           ...s,
+          qr_id: s.qr_id || String(s.id),
           active: true,
           employee_count: Array.isArray(s.employees) ? s.employees.length : 0,
         }));
@@ -78,14 +77,7 @@ export default function QRPrintPage() {
     fetchStations();
   }, []);
 
-  const stationRef = (station: Station) => station.qr_id || String(station.id);
-
-  const stationUrl = (station: Station) => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-    return `${origin}/station/${encodeURIComponent(stationRef(station))}`;
-  };
-
-  const qrElementId = (station: Station) => `qr-print-${stationRef(station).replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+  const qrElementId = (station: Station) => `qr-print-${station.qr_id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
 
   const downloadStationQR = (station: Station) => {
     const svg = document.getElementById(qrElementId(station));
@@ -150,7 +142,7 @@ export default function QRPrintPage() {
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#152C73] mb-2">QR Print Center</h1>
-          <p className="text-slate-600">All station QRs ready to print. Title stays above each QR.</p>
+          <p className="text-slate-600">One large QR per printed page. QR links never change after first creation.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -195,78 +187,93 @@ export default function QRPrintPage() {
       </div>
 
       {loading ? (
-        <div className="py-16 flex justify-center">
+        <div className="py-16 flex justify-center print:hidden">
           <div className="w-10 h-10 border-2 border-[#152C73]/30 border-t-[#152C73] rounded-full animate-spin" />
         </div>
       ) : filteredStations.length === 0 ? (
-        <div className="glass-card text-center py-12">
+        <div className="glass-card text-center py-12 print:hidden">
           <p className="text-slate-600">No matches found for your search.</p>
         </div>
       ) : (
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 print:grid-cols-3 print:gap-3">
-          {filteredStations.map((station) => (
-            <article
-              key={stationRef(station)}
-              className={`bg-white rounded-2xl p-5 shadow-sm print:shadow-none print:rounded-lg print:p-3 ${station.active ? "border-2 border-green-500" : "border border-slate-300"}`}
-            >
-              <div className="mb-2 flex justify-center">
-                {station.active ? (
-                  <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-green-100 text-green-800 border border-green-300">
-                    In current Excel
-                  </span>
-                ) : (
-                  <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-300">
-                    Not in current Excel
-                  </span>
-                )}
-              </div>
-
-              <h2 className="text-center text-base font-bold text-[#152C73] leading-tight min-h-[3rem] print:min-h-0">
-                {station.name}
-              </h2>
-
-              <div className="mt-4 flex justify-center">
-                <div className="bg-white p-2 border border-slate-200 rounded-xl">
-                  <QRCodeSVG
-                    id={qrElementId(station)}
-                    value={stationUrl(station)}
-                    size={170}
-                    bgColor="#ffffff"
-                    fgColor="#152C73"
-                    level="H"
-                  />
+        <>
+          {/* Screen preview grid */}
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 print:hidden">
+            {filteredStations.map((station) => (
+              <article
+                key={station.qr_id}
+                className={`bg-white rounded-2xl p-5 shadow-sm ${station.active ? "border-2 border-green-500" : "border border-slate-300"}`}
+              >
+                <div className="mb-2 flex justify-center">
+                  {station.active ? (
+                    <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-green-100 text-green-800 border border-green-300">
+                      Current
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-300">
+                      Inactive
+                    </span>
+                  )}
                 </div>
-              </div>
 
-              <p className="mt-3 text-xs text-center text-slate-500 break-all print:hidden">{stationUrl(station)}</p>
+                <h2 className="text-center text-base font-bold text-[#152C73] leading-tight min-h-[3rem]">
+                  {station.name}
+                </h2>
 
-              <p className="mt-1 text-xs text-center text-slate-500 print:hidden">
-                {station.employee_count} operador{station.employee_count !== 1 ? "es" : ""} activos
-              </p>
+                <div className="mt-4 flex justify-center">
+                  <div className="bg-white p-2 border border-slate-200 rounded-xl">
+                    <StationQRCode
+                      id={qrElementId(station)}
+                      stationRef={station.qr_id}
+                      size={170}
+                    />
+                  </div>
+                </div>
 
-              <div className="mt-4 flex justify-center gap-2 print:hidden">
-                <button
-                  type="button"
-                  onClick={() => downloadStationQR(station)}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:border-[#152C73] hover:text-[#152C73] text-sm"
-                >
-                  <Download className="w-4 h-4" />
-                  Download QR
-                </button>
-                {!station.active && (
+                <p className="mt-3 text-xs text-center text-slate-500 break-all">{buildStationUrl(station.qr_id)}</p>
+
+                <p className="mt-1 text-xs text-center text-slate-500">
+                  {station.employee_count} operador{station.employee_count !== 1 ? "es" : ""} activos
+                </p>
+
+                <div className="mt-4 flex justify-center gap-2">
                   <button
                     type="button"
-                    onClick={() => deleteInactiveStation(station)}
-                    disabled={busyDelete === station.id}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:opacity-60 text-sm"
+                    onClick={() => downloadStationQR(station)}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:border-[#152C73] hover:text-[#152C73] text-sm"
                   >
-                    {busyDelete === station.id ? "Deleting..." : "Delete"}
+                    <Download className="w-4 h-4" />
+                    Download QR
                   </button>
-                )}
+                  {!station.active && (
+                    <button
+                      type="button"
+                      onClick={() => deleteInactiveStation(station)}
+                      disabled={busyDelete === station.id}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:opacity-60 text-sm"
+                    >
+                      {busyDelete === station.id ? "Deleting..." : "Delete"}
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </section>
+
+          {/* Print layout: one station per page, name + large QR only */}
+          <section className="hidden print:block p-2">
+            {filteredStations.map((station) => (
+              <div 
+                key={`print-${station.qr_id}`} 
+                className="qr-print-page p-8 box-border rounded-3xl border-8 border-[#00C950] max-w-[680px] mx-auto"
+              >
+                <h2 className="qr-print-title">{station.name}</h2>
+                <div className="mt-6 flex justify-center">
+                  <StationQRCode stationRef={station.qr_id} size={600} fgColor="#000000" />
+                </div>
               </div>
-            </article>
-          ))}
-        </section>
+            ))}
+          </section>
+        </>
       )}
     </div>
   );

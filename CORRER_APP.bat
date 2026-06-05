@@ -7,14 +7,18 @@ echo   INICIANDO APLICACION ALBERTO
 echo ========================================
 echo.
 
+REM Variables: Agregamos la ruta de Node.js al PATH para que 'npm' y 'node' funcionen
+set "NODE_DIR=C:\Users\TamezDan\Desktop\Carrier 2026\node-v24.15.0-win-x64"
+set "PATH=%NODE_DIR%;%PATH%"
+
 REM Backend
 echo [1/2] Iniciando Backend (Puerto 8000)...
-start cmd /k "cd backend && python main.py"
+start "Backend" cmd /k "cd backend && python main.py"
 
 REM Frontend
 echo [2/2] Iniciando Frontend (Puerto 3000)...
-timeout /t 2
-start cmd /k "cd frontend && C:\Users\TamezDan\Desktop\node-v24.15.0-win-x64\npm.cmd run dev"
+ping 127.0.0.1 -n 3 > nul
+start "Frontend" cmd /k "cd frontend && npm run dev"
 
 echo.
 echo ========================================

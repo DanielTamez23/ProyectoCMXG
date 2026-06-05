@@ -10,6 +10,7 @@ class Station(Base):
     __tablename__ = "stations"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+    qr_id = Column(String, unique=True, index=True, nullable=True)
     assignments = relationship("Assignment", back_populates="station")
 
 class Employee(Base):
@@ -35,9 +36,41 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 else:
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"sslmode": "require"})
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+def backfill_station_qr_ids():
+    from sqlalchemy import inspect, text
+    import hashlib
+    import re
+
+    def build_qr_id(station_name: str) -> str:
+        normalized = str(station_name).strip().lower()
+        slug = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-") or "station"
+        digest = hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:8]
+        return f"{slug}-{digest}"
+
+    inspector = inspect(engine)
+    if "stations" not in inspector.get_table_names():
+        return
+
+    columns = {col["name"] for col in inspector.get_columns("stations")}
+    if "qr_id" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE stations ADD COLUMN qr_id VARCHAR"))
+
+    db = SessionLocal()
+    try:
+        stations = db.query(Station).filter(Station.qr_id.is_(None)).all()
+        for station in stations:
+            station.qr_id = build_qr_id(station.name)
+        if stations:
+            db.commit()
+    finally:
+        db.close()
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
+    backfill_station_qr_ids()
