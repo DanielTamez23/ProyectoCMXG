@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Activity, User, Briefcase, MapPin, Loader2, CheckCircle2, ChevronLeft, ChevronRight, LogIn, Workflow, ArrowUpDown, Clock3 } from "lucide-react";
+import { Activity, User, Briefcase, MapPin, Loader2, CheckCircle2, ChevronLeft, ChevronRight, LogIn, Workflow, ArrowUpDown, Clock3, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { createSession, getAllowedUsers, getSession, saveSession } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -48,6 +48,7 @@ export default function StationPage() {
   const [authLoading, setAuthLoading] = useState(false);
   const [lastUpload, setLastUpload] = useState<LastUpload | null>(null);
   const [shiftSort, setShiftSort] = useState<"asc" | "desc">("asc");
+  const [selectedEmployee, setSelectedEmployee] = useState<StationEmployee | null>(null);
 
   useEffect(() => {
     const session = getSession();
@@ -117,6 +118,12 @@ export default function StationPage() {
   const shiftToNumber = (shiftValue: string) => {
     const num = Number(String(shiftValue).trim());
     return Number.isNaN(num) ? Number.MAX_SAFE_INTEGER : num;
+  };
+
+  const getEmployeeStations = (employee: StationEmployee) => {
+    return stations.filter(station =>
+      station.employees.some(emp => emp.id === employee.id)
+    );
   };
 
   const employees = station?.employees ?? [];
@@ -319,7 +326,8 @@ export default function StationPage() {
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.1 + (idx * 0.1) }}
-                className="bg-white rounded-2xl p-5 border-l-4 border-l-[#152C73] border border-slate-300"
+                onClick={() => setSelectedEmployee(emp)}
+                className="bg-white rounded-2xl p-5 border-l-4 border-l-[#152C73] border border-slate-300 cursor-pointer hover:border-[#152C73] hover:shadow-md transition-all"
               >
                 <div className="flex gap-4">
                   <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-300">
@@ -350,6 +358,53 @@ export default function StationPage() {
           </div>
         )}
       </div>
+
+      {/* Modal para mostrar estaciones del operador seleccionado */}
+      {selectedEmployee && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-start">
+              <div>
+                <h2 className="text-xl font-bold text-[#152C73]">{selectedEmployee.name}</h2>
+                <p className="text-sm text-slate-600 mt-1">Nómina: {selectedEmployee.payroll_id}</p>
+                <p className="text-sm text-slate-600">Turno: {selectedEmployee.shift}</p>
+              </div>
+              <button
+                onClick={() => setSelectedEmployee(null)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                Estaciones capacitadas
+              </h3>
+              {(() => {
+                const employeeStations = getEmployeeStations(selectedEmployee);
+                return employeeStations.length > 0 ? (
+                  <ul className="space-y-2">
+                    {employeeStations.map((station) => (
+                      <li
+                        key={station.id}
+                        className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium text-slate-800">{station.name}</p>
+                          <p className="text-xs text-slate-500">{station.qr_id}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-500 text-center py-4">No hay estaciones asignadas</p>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -359,7 +359,7 @@ export default function DashboardPage() {
               <tbody className="text-sm text-slate-700">
                 {stations.map((station) => (
                   station.employees.map((emp, idx: number) => (
-                    <tr key={`${station.id}-${emp.id}`} className="border-b border-slate-200 hover:bg-slate-100 transition-colors">
+                    <tr key={`${station.id}-${emp.assignment_id}`} className="border-b border-slate-200 hover:bg-slate-100 transition-colors">
                       <td className="py-4 px-4">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-900 border border-blue-300">
                           {station.name}
