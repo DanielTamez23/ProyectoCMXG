@@ -128,7 +128,12 @@ export default function StationPage() {
 
   const employees = station?.employees ?? [];
 
-  const sortedEmployees = [...employees].sort((a, b) => {
+  // Deduplicate employees by ID to avoid showing the same operator multiple times
+  const uniqueEmployees = employees.filter((emp, index, self) =>
+    index === self.findIndex(e => e.id === emp.id)
+  );
+
+  const sortedEmployees = [...uniqueEmployees].sort((a, b) => {
     const diff = shiftToNumber(a.shift) - shiftToNumber(b.shift);
     if (diff === 0) return a.name.localeCompare(b.name);
     return shiftSort === "asc" ? diff : -diff;
@@ -304,7 +309,7 @@ export default function StationPage() {
               <ArrowUpDown className="w-4 h-4" />
               Turno {shiftSort === "asc" ? "1→3" : "3→1"}
             </button>
-            <span className="text-2xl font-black text-[#152C73]">{station.employees.length}</span>
+            <span className="text-2xl font-black text-[#152C73]">{uniqueEmployees.length}</span>
           </div>
         </motion.div>
 
@@ -322,7 +327,7 @@ export default function StationPage() {
           <div className="space-y-4">
             {sortedEmployees.map((emp: any, idx: number) => (
               <motion.div
-                key={emp.id}
+                key={emp.assignment_id}
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.1 + (idx * 0.1) }}

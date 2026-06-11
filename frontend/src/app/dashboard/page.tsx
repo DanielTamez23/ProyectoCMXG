@@ -132,22 +132,30 @@ export default function DashboardPage() {
 
   const handleUpload = async () => {
     if (!file) return;
-    
+
     setUploading(true);
     setStatus({ type: null, message: "" });
-    
+
     const formData = new FormData();
     formData.append("file", file);
-    
+
     try {
+      console.log("[FRONTEND] Starting upload for file:", file.name);
       const res = await api.post("/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" }
       });
+      console.log("[FRONTEND] Upload successful:", res.data);
       setStatus({ type: 'success', message: `Successfully uploaded and processed ${res.data.rows_processed} rows.` });
       setFile(null);
-      fetchStations();
-      fetchLastUpload();
+      console.log("[FRONTEND] Fetching stations after upload");
+      await fetchStations();
+      console.log("[FRONTEND] Fetching last upload after upload");
+      await fetchLastUpload();
+      console.log("[FRONTEND] Data refresh completed");
     } catch (err: any) {
+      console.error("[FRONTEND] Upload error:", err);
+      console.error("[FRONTEND] Error response:", err.response);
+      console.error("[FRONTEND] Error message:", err.message);
       setStatus({ type: 'error', message: err.response?.data?.detail || "An error occurred during upload." });
     } finally {
       setUploading(false);

@@ -95,7 +95,12 @@ export default function VisualFlowPage() {
           <div className="absolute top-1/2 left-10 right-10 h-0.5 bg-slate-300 -translate-y-1/2 z-0 hidden lg:block" />
           
           <div className="flex flex-col lg:flex-row flex-wrap gap-8 justify-center items-center relative z-10">
-            {filteredStations.map((station, idx) => (
+            {filteredStations.map((station, idx) => {
+              // Deduplicate employees by ID to avoid counting the same operator multiple times
+              const uniqueEmployees = (station.employees || []).filter((emp: any, index: number, self: any[]) =>
+                index === self.findIndex((e: any) => e.id === emp.id)
+              );
+              return (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -106,21 +111,22 @@ export default function VisualFlowPage() {
               >
                 <div className="bg-white border border-slate-300 rounded-2xl p-6 w-64 text-center shadow-sm hover:border-[#152C73]">
                   <div className="flex flex-col items-center">
-                    <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${station.employees.length > 0 ? 'bg-[#152C73] text-white' : 'bg-slate-100 text-slate-500 border border-slate-300'}`}>
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${uniqueEmployees.length > 0 ? 'bg-[#152C73] text-white' : 'bg-slate-100 text-slate-500 border border-slate-300'}`}>
                       {getStationIcon(station.name)}
                     </div>
                     <h3 className="text-lg font-bold text-slate-900 mb-1">{station.name}</h3>
-                    
+
                     <div className="mt-4 flex items-center justify-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
                       <Users className="w-4 h-4 text-slate-600" />
                       <span className="text-sm font-medium text-slate-700">
-                        {station.employees.length} Operator{station.employees.length !== 1 ? 's' : ''}
+                        {uniqueEmployees.length} Operator{uniqueEmployees.length !== 1 ? 's' : ''}
                       </span>
                     </div>
                   </div>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

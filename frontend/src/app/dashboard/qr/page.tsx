@@ -249,25 +249,36 @@ export default function QRPrintPage() {
                 {station.employees.length > 0 && (
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-slate-500 mb-1 font-medium">Operadores:</p>
-                    {station.employees.slice(0, 3).map((emp) => (
-                      <button
-                        key={`${station.id}-${emp.assignment_id}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedEmployee(emp);
-                        }}
-                        className="w-full text-left text-sm text-slate-700 hover:text-[#152C73] hover:bg-blue-50 px-3 py-2 rounded-lg transition-all truncate border border-slate-200 hover:border-[#152C73] cursor-pointer block hover:shadow-sm"
-                        title={`${emp.name} - ${emp.payroll_id}`}
-                      >
-                        <span className="font-medium">{emp.name}</span>
-                        <span className="text-xs text-slate-500 ml-2">({emp.payroll_id})</span>
-                      </button>
-                    ))}
-                    {station.employees.length > 3 && (
-                      <p className="text-xs text-slate-400 text-center">
-                        +{station.employees.length - 3} más operadores
-                      </p>
-                    )}
+                    {(() => {
+                      // Deduplicate employees by ID to avoid showing the same operator multiple times
+                      const uniqueEmployees = station.employees.filter((emp, index, self) =>
+                        index === self.findIndex(e => e.id === emp.id)
+                      );
+                      return uniqueEmployees.slice(0, 3).map((emp) => (
+                        <button
+                          key={`${station.id}-${emp.assignment_id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEmployee(emp);
+                          }}
+                          className="w-full text-left text-sm text-slate-700 hover:text-[#152C73] hover:bg-blue-50 px-3 py-2 rounded-lg transition-all truncate border border-slate-200 hover:border-[#152C73] cursor-pointer block hover:shadow-sm"
+                          title={`${emp.name} - ${emp.payroll_id}`}
+                        >
+                          <span className="font-medium">{emp.name}</span>
+                          <span className="text-xs text-slate-500 ml-2">({emp.payroll_id})</span>
+                        </button>
+                      ));
+                    })()}
+                    {(() => {
+                      const uniqueEmployees = station.employees.filter((emp, index, self) =>
+                        index === self.findIndex(e => e.id === emp.id)
+                      );
+                      return uniqueEmployees.length > 3 && (
+                        <p className="text-xs text-slate-400 text-center">
+                          +{uniqueEmployees.length - 3} más operadores
+                        </p>
+                      );
+                    })()}
                   </div>
                 )}
                 {station.employees.length === 0 && (

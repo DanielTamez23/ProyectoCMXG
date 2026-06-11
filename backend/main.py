@@ -18,7 +18,9 @@ app = FastAPI(title="Station Management API")
 frontend_origins_env = os.getenv("FRONTEND_ORIGINS", "")
 frontend_origins = [origin.strip() for origin in frontend_origins_env.split(",") if origin.strip()]
 if not frontend_origins:
-    frontend_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    frontend_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://10.42.69.41:3000"]
+
+print(f"[CORS] Allowing origins: {frontend_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,6 +29,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"[REQUEST] {request.method} {request.url.path} from {request.client.host if request.client else 'unknown'}")
+    response = await call_next(request)
+    print(f"[RESPONSE] {request.method} {request.url.path} - Status: {response.status_code}")
+    return response
 
 
 def get_db():
@@ -105,39 +114,51 @@ async def upload_excel(
     db: Session = Depends(get_db),
     _auth: None = Depends(verify_upload_api_key),
 ):
+    print(f"[UPLOAD] Starting upload process for file: {file.filename}")
     if not (file.filename.endswith('.xlsx') or file.filename.endswith('.xlsm')):
+        print(f"[UPLOAD] Invalid file format: {file.filename}")
         raise HTTPException(status_code=400, detail="Only .xlsx or .xlsm files are supported")
-    
-    contents = await file.read()
+
     try:
+        contents = await file.read()
+        print(f"[UPLOAD] File read successfully, size: {len(contents)} bytes")
         df = pd.read_excel(io.BytesIO(contents))
-        
+        print(f"[UPLOAD] Excel parsed successfully, columns: {df.columns.tolist()}, rows: {len(df)}")
+
         required_columns = ["Operator", "Station", "Payroll ID", "Shift", "Station Order ID"]
         if not all(col in df.columns for col in required_columns):
+            missing = [col for col in required_columns if col not in df.columns]
+            print(f"[UPLOAD] Missing required columns: {missing}")
             raise HTTPException(status_code=400, detail=f"Excel must contain columns: {', '.join(required_columns)}")
-        
+
+        print(f"[UPLOAD] Deleting existing assignments and employees")
         db.query(models.Assignment).delete(synchronize_session=False)
         db.query(models.Employee).delete(synchronize_session=False)
         db.commit()
-        
-        for _, row in df.iterrows():
+        print(f"[UPLOAD] Existing data deleted successfully")
+
+        for idx, row in df.iterrows():
             operator_name = str(row["Operator"])
             station_name = str(row["Station"])
             payroll_id = str(row["Payroll ID"])
             shift = str(row["Shift"])
             station_order_id = str(row["Station Order ID"])
-            
+
+            print(f"[UPLOAD] Processing row {idx + 1}/{len(df)}: {operator_name} at {station_name}")
+
             emp = db.query(models.Employee).filter(models.Employee.payroll_id == payroll_id).first()
             if not emp:
                 emp = models.Employee(payroll_id=payroll_id, name=operator_name, shift=shift)
                 db.add(emp)
                 db.commit()
                 db.refresh(emp)
+                print(f"[UPLOAD] Created new employee: {payroll_id}")
             else:
                 emp.name = operator_name
                 emp.shift = shift
                 db.commit()
-                
+                print(f"[UPLOAD] Updated existing employee: {payroll_id}")
+
             stat = db.query(models.Station).filter(models.Station.name == station_name).first()
             if not stat:
                 stat = models.Station(
@@ -147,15 +168,17 @@ async def upload_excel(
                 db.add(stat)
                 db.commit()
                 db.refresh(stat)
-                
+                print(f"[UPLOAD] Created new station: {station_name}")
+
             assignment = models.Assignment(
                 station_id=stat.id,
                 employee_id=emp.id,
                 station_order_id=station_order_id
             )
             db.add(assignment)
-            
+
         db.commit()
+        print(f"[UPLOAD] All data committed successfully")
 
         global last_upload_info
         last_upload_info = {
@@ -163,10 +186,15 @@ async def upload_excel(
             "rows_processed": len(df),
             "filename": file.filename,
         }
-        
+
+        print(f"[UPLOAD] Upload completed successfully: {len(df)} rows processed")
         return {"message": "Data uploaded successfully", "rows_processed": len(df)}
-        
+
     except Exception as e:
+        print(f"[UPLOAD] ERROR: {str(e)}")
+        print(f"[UPLOAD] ERROR TYPE: {type(e).__name__}")
+        import traceback
+        print(f"[UPLOAD] TRACEBACK: {traceback.format_exc()}")
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
