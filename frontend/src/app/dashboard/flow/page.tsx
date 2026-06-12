@@ -56,8 +56,14 @@ export default function VisualFlowPage() {
   };
 
   const goToStation = (station: any) => {
-    if (!station.qr_id) return;
-    router.push(`/station/${encodeURIComponent(station.qr_id)}`);
+    if (station.qr_id) {
+      router.push(`/station/${encodeURIComponent(station.qr_id)}`);
+    } else if (station.id) {
+      router.push(`/station/${station.id}`);
+    } else {
+      // For grouped stations, use the name as identifier
+      router.push(`/station/${encodeURIComponent(station.name)}`);
+    }
   };
 
   return (
@@ -105,7 +111,7 @@ export default function VisualFlowPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: idx * 0.1 }}
-                key={station.id}
+                key={station.id || station.name || idx}
                 onClick={() => goToStation(station)}
                 className="cursor-pointer transition-all duration-200 transform hover:-translate-y-1 hover:shadow-md"
               >

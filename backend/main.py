@@ -75,7 +75,7 @@ def build_station_qr_id(station_name: str):
     return f"{slug}-{digest}"
 
 
-def station_to_response(station: models.Station, db: Session):
+def station_to_response(station: models.Station, db: Session, has_percentage: bool = False, has_low_percentage: bool = False):
     assignments = db.query(models.Assignment).filter(models.Assignment.station_id == station.id).all()
     employees = [
         {
@@ -85,6 +85,8 @@ def station_to_response(station: models.Station, db: Session):
             "payroll_id": a.employee.payroll_id,
             "shift": a.employee.shift,
             "order_id": a.station_order_id,
+            "has_percentage": has_percentage,
+            "has_low_percentage": has_low_percentage,
         }
         for a in assignments
     ]
@@ -204,14 +206,93 @@ def get_last_upload():
         return {"timestamp": None, "rows_processed": None, "filename": None}
     return last_upload_info
 
+def normalize_station_name(station_name: str):
+    """Remove ' - 0.x' suffix from station names for grouping"""
+    import re
+    pattern = r' - 0\.\d+$'
+    return re.sub(pattern, '', station_name.strip())
+
+def has_percentage_suffix(station_name: str):
+    """Check if station name has ' - 0.x' suffix and return the value"""
+    import re
+    pattern = r' - 0\.(\d+)$'
+    match = re.search(pattern, station_name.strip())
+    if match:
+        return float(f"0.{match.group(1)}")
+    return None
+
 @app.get("/stations")
 def get_stations(db: Session = Depends(get_db)):
     stations = db.query(models.Station).order_by(models.Station.id.asc()).all()
-    active_stations = []
+    
+    # Group stations by normalized name
+    grouped_stations = {}
     for station in stations:
-        data = station_to_response(station, db)
+        # Check if this station has percentage suffix and determine if it's low (<= 0.7)
+        percentage_value = has_percentage_suffix(station.name)
+        station_has_percentage = False
+        station_has_low_percentage = False
+        if percentage_value is not None:
+            if percentage_value <= 0.7:
+                station_has_low_percentage = True
+            else:
+                station_has_percentage = True
+        
+        data = station_to_response(station, db, has_percentage=station_has_percentage, has_low_percentage=station_has_low_percentage)
         if data["employees"]:
-            active_stations.append(data)
+            normalized_name = normalize_station_name(data["name"])
+            if normalized_name not in grouped_stations:
+                grouped_stations[normalized_name] = {
+                    "name": normalized_name,
+                    "employees": [],
+                    "original_names": set(),
+                }
+            grouped_stations[normalized_name]["employees"].extend(data["employees"])
+            grouped_stations[normalized_name]["original_names"].add(data["name"])
+    
+    # Build final station list
+    active_stations = []
+    for normalized_name, station_data in grouped_stations.items():
+        # Check if this is a grouped station (multiple original names)
+        is_grouped = len(station_data["original_names"]) > 1
+        
+        print(f"[GROUPING] {normalized_name}: original_names={station_data['original_names']}, is_grouped={is_grouped}")
+        
+        # Deduplicate employees by ID, merging has_percentage and has_low_percentage flags
+        unique_employees = {}
+        for emp in station_data["employees"]:
+            if emp["id"] not in unique_employees:
+                unique_employees[emp["id"]] = emp
+            else:
+                # If employee already exists, merge flags (true if any source has it)
+                old_has_percentage = unique_employees[emp["id"]]["has_percentage"]
+                new_has_percentage = emp["has_percentage"]
+                merged_has_percentage = old_has_percentage or new_has_percentage
+                
+                old_has_low_percentage = unique_employees[emp["id"]]["has_low_percentage"]
+                new_has_low_percentage = emp["has_low_percentage"]
+                merged_has_low_percentage = old_has_low_percentage or new_has_low_percentage
+                
+                print(f"[DEDUPLICATE] Employee {emp['id']} ({emp['name']}): has_percentage old={old_has_percentage}, new={new_has_percentage}, merged={merged_has_percentage} | has_low_percentage old={old_has_low_percentage}, new={new_has_low_percentage}, merged={merged_has_low_percentage}")
+                unique_employees[emp["id"]]["has_percentage"] = merged_has_percentage
+                unique_employees[emp["id"]]["has_low_percentage"] = merged_has_low_percentage
+        
+        # If not grouped, find the original station to get id and qr_id
+        station_id = None
+        station_qr_id = None
+        if not is_grouped:
+            # Find the original station with this name
+            original_station = db.query(models.Station).filter(models.Station.name == list(station_data["original_names"])[0]).first()
+            if original_station:
+                station_id = original_station.id
+                station_qr_id = original_station.qr_id
+        
+        active_stations.append({
+            "id": station_id,
+            "qr_id": station_qr_id,
+            "name": normalized_name,
+            "employees": list(unique_employees.values()),
+        })
 
     def station_order_key(station_data):
         order_ids = [parse_int_or_max(emp.get("order_id")) for emp in station_data["employees"]]

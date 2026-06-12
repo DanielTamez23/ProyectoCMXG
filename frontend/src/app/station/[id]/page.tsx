@@ -15,11 +15,13 @@ type StationEmployee = {
   payroll_id: string;
   shift: string;
   order_id: string;
+  has_percentage?: boolean;
+  has_low_percentage?: boolean;
 };
 
 type Station = {
-  id: number;
-  qr_id: string;
+  id: number | null;
+  qr_id: string | null;
   name: string;
   employees: StationEmployee[];
 };
@@ -69,9 +71,14 @@ export default function StationPage() {
         setStations(orderedStations);
         setLastUpload(lastUploadRes.data);
 
+        const decodedRef = decodeURIComponent(stationRef);
         const current = orderedStations.find(
-          (s) => s.qr_id === stationRef || String(s.id) === stationRef,
+          (s) => s.qr_id === stationRef || String(s.id) === stationRef || s.name === stationRef || s.name === decodedRef || s.name.toLowerCase().trim() === decodedRef.toLowerCase().trim()
         );
+        console.log("StationRef:", stationRef);
+        console.log("Decoded StationRef:", decodedRef);
+        console.log("OrderedStations:", orderedStations.map(s => ({ name: s.name, id: s.id, qr_id: s.qr_id })));
+        console.log("Current station found:", current);
         if (!current) {
           setError("Station not found");
           setStation(null);
@@ -111,7 +118,8 @@ export default function StationPage() {
     setAuthLoading(false);
   };
 
-  const currentIndex = stations.findIndex((s) => s.qr_id === stationRef || String(s.id) === stationRef);
+  const decodedRef = decodeURIComponent(stationRef);
+  const currentIndex = stations.findIndex((s) => s.qr_id === stationRef || String(s.id) === stationRef || s.name === stationRef || s.name === decodedRef || s.name.toLowerCase().trim() === decodedRef.toLowerCase().trim());
   const previousStation = currentIndex > 0 ? stations[currentIndex - 1] : null;
   const nextStation = currentIndex >= 0 && currentIndex < stations.length - 1 ? stations[currentIndex + 1] : null;
 
@@ -341,10 +349,10 @@ export default function StationPage() {
                   <div className="flex-1">
                     <h3 className="text-lg font-bold text-slate-900">{emp.name}</h3>
                     <div className="flex items-center gap-3 mt-1.5">
-                      <span className="text-xs font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                      <span className={`text-xs font-mono px-2 py-0.5 rounded border ${emp.has_low_percentage ? 'text-white bg-red-500 border-red-600' : emp.has_percentage ? 'text-slate-800 bg-yellow-200 border-yellow-400' : 'text-slate-700 bg-slate-100 border-slate-300'}`}>
                         ID: {emp.payroll_id}
                       </span>
-                      <span className="text-xs font-medium text-white bg-[#152C73] px-2 py-0.5 rounded border border-[#152C73]">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded border ${emp.has_low_percentage ? 'text-white bg-red-500 border-red-600' : emp.has_percentage ? 'text-slate-800 bg-yellow-200 border-yellow-400' : 'text-white bg-[#152C73] border-[#152C73]'}`}>
                         Turno {emp.shift}
                       </span>
                     </div>
@@ -390,9 +398,9 @@ export default function StationPage() {
                 const employeeStations = getEmployeeStations(selectedEmployee);
                 return employeeStations.length > 0 ? (
                   <ul className="space-y-2">
-                    {employeeStations.map((station) => (
+                    {employeeStations.map((station, idx) => (
                       <li
-                        key={station.id}
+                        key={station.id || station.name || idx}
                         className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
                       >
                         <div className="flex-1">

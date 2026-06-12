@@ -12,10 +12,12 @@ type StationEmployee = {
   payroll_id: string;
   shift: string;
   order_id: string;
+  has_percentage?: boolean;
+  has_low_percentage?: boolean;
 };
 
 type Station = {
-  id: number;
+  id: number | null;
   name: string;
   employees: StationEmployee[];
 };
@@ -63,7 +65,7 @@ export default function DashboardPage() {
       setRenameDrafts((prev) => {
         const next = { ...prev };
         res.data.forEach((station) => {
-          if (!next[station.id]) next[station.id] = station.name;
+          if (station.id !== null && !next[station.id]) next[station.id] = station.name;
         });
         return next;
       });
@@ -314,23 +316,23 @@ export default function DashboardPage() {
               Admin Station Controls
             </div>
             <div className="space-y-2">
-              {stations.map((station) => (
+              {stations.filter(station => station.id !== null).map((station) => (
                 <div key={station.id} className="flex flex-col md:flex-row gap-2 md:items-center">
                   <span className="text-xs text-slate-600 md:w-24">ID {station.id}</span>
                   <input
                     type="text"
-                    value={renameDrafts[station.id] ?? station.name}
+                    value={renameDrafts[station.id!] ?? station.name}
                     onChange={(e) =>
                       setRenameDrafts((prev) => ({
                         ...prev,
-                        [station.id]: e.target.value,
+                        [station.id!]: e.target.value,
                       }))
                     }
                     className="glass-input py-2"
                   />
                   <button
                     type="button"
-                    onClick={() => handleRenameStation(station.id)}
+                    onClick={() => handleRenameStation(station.id!)}
                     disabled={busyAction === `rename-${station.id}`}
                     className="btn-secondary px-3 py-2 text-sm"
                   >
@@ -376,7 +378,7 @@ export default function DashboardPage() {
                       <td className="py-4 px-4 font-medium text-slate-900">{emp.name}</td>
                       <td className="py-4 px-4 font-mono text-slate-600">{emp.payroll_id}</td>
                       <td className="py-4 px-4">
-                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300">
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${emp.has_low_percentage ? 'bg-red-500 text-white border-red-600' : emp.has_percentage ? 'bg-yellow-200 text-slate-800 border-yellow-400' : 'bg-slate-100 text-slate-700 border-slate-300'}`}>
                           {emp.shift}
                         </span>
                       </td>
