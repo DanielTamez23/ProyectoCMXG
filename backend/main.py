@@ -358,9 +358,12 @@ def get_qr_stations(db: Session = Depends(get_db)):
         
         employee_count = len(unique_employees)
         
-        # Use the first original QR ID if available, otherwise build one from normalized name
-        qr_id = None
-        if station_data["original_qr_ids"]:
+        # Use the normalized name as QR ID for grouped stations to ensure navigation works
+        # For non-grouped stations, use the original QR ID
+        is_grouped = len(station_data["original_names"]) > 1
+        if is_grouped:
+            qr_id = normalized_name
+        elif station_data["original_qr_ids"]:
             qr_id = list(station_data["original_qr_ids"])[0]
         else:
             qr_id = build_station_qr_id(normalized_name)
