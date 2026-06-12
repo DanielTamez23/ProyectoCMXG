@@ -306,18 +306,73 @@ def get_stations(db: Session = Depends(get_db)):
 @app.get("/qr-stations")
 def get_qr_stations(db: Session = Depends(get_db)):
     stations = db.query(models.Station).order_by(models.Station.name.asc()).all()
-    result = []
-
+    
+    # Group stations by normalized name (same logic as /stations)
+    grouped_stations = {}
     for station in stations:
-        data = station_to_response(station, db)
-        employee_count = len(data["employees"])
-        result.append(
-            {
-                **data,
-                "active": employee_count > 0,
-                "employee_count": employee_count,
-            }
-        )
+        # Check if this station has percentage suffix and determine if it's low (<= 0.7)
+        percentage_value = has_percentage_suffix(station.name)
+        station_has_percentage = False
+        station_has_low_percentage = False
+        if percentage_value is not None:
+            if percentage_value <= 0.7:
+                station_has_low_percentage = True
+            else:
+                station_has_percentage = True
+        
+        data = station_to_response(station, db, has_percentage=station_has_percentage, has_low_percentage=station_has_low_percentage)
+        if data["employees"]:
+            normalized_name = normalize_station_name(data["name"])
+            if normalized_name not in grouped_stations:
+                grouped_stations[normalized_name] = {
+                    "name": normalized_name,
+                    "employees": [],
+                    "original_names": set(),
+                    "original_qr_ids": set(),
+                }
+            grouped_stations[normalized_name]["employees"].extend(data["employees"])
+            grouped_stations[normalized_name]["original_names"].add(data["name"])
+            if data["qr_id"]:
+                grouped_stations[normalized_name]["original_qr_ids"].add(data["qr_id"])
+    
+    # Build final station list
+    result = []
+    for normalized_name, station_data in grouped_stations.items():
+        # Deduplicate employees by ID, merging has_percentage and has_low_percentage flags
+        unique_employees = {}
+        for emp in station_data["employees"]:
+            if emp["id"] not in unique_employees:
+                unique_employees[emp["id"]] = emp
+            else:
+                # If employee already exists, merge flags (true if any source has it)
+                old_has_percentage = unique_employees[emp["id"]]["has_percentage"]
+                new_has_percentage = emp["has_percentage"]
+                merged_has_percentage = old_has_percentage or new_has_percentage
+                
+                old_has_low_percentage = unique_employees[emp["id"]]["has_low_percentage"]
+                new_has_low_percentage = emp["has_low_percentage"]
+                merged_has_low_percentage = old_has_low_percentage or new_has_low_percentage
+                
+                unique_employees[emp["id"]]["has_percentage"] = merged_has_percentage
+                unique_employees[emp["id"]]["has_low_percentage"] = merged_has_low_percentage
+        
+        employee_count = len(unique_employees)
+        
+        # Use the first original QR ID if available, otherwise build one from normalized name
+        qr_id = None
+        if station_data["original_qr_ids"]:
+            qr_id = list(station_data["original_qr_ids"])[0]
+        else:
+            qr_id = build_station_qr_id(normalized_name)
+        
+        result.append({
+            "id": None,  # Grouped stations don't have a single ID
+            "qr_id": qr_id,
+            "name": normalized_name,
+            "employees": list(unique_employees.values()),
+            "active": employee_count > 0,
+            "employee_count": employee_count,
+        })
 
     result.sort(key=lambda s: (not s["active"], s["name"].lower()))
     return result

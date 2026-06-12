@@ -209,9 +209,9 @@ export default function QRPrintPage() {
         <>
           {/* Screen preview grid */}
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 print:hidden">
-            {filteredStations.map((station) => (
+            {filteredStations.map((station, idx) => (
               <article
-                key={station.id}
+                key={station.name || station.qr_id || idx}
                 className={`bg-white rounded-2xl p-5 shadow-sm ${station.active ? "border-2 border-green-500" : "border border-slate-300"}`}
               >
                 <div className="mb-2 flex justify-center">
@@ -311,9 +311,9 @@ export default function QRPrintPage() {
 
           {/* Print layout: one station per page, name + large QR only */}
           <section className="hidden print:block p-2">
-            {filteredStations.map((station) => (
+            {filteredStations.map((station, idx) => (
               <div
-                key={`print-${station.id}`}
+                key={`print-${station.name || station.qr_id || idx}`}
                 className="qr-print-page p-8 box-border rounded-3xl border-8 border-[#00C950] max-w-[680px] mx-auto"
               >
                 <h2 className="qr-print-title">{station.name}</h2>
