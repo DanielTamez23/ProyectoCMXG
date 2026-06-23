@@ -79,12 +79,6 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchStations();
     fetchLastUpload();
-    // Auto-refresh every 30 seconds to pick up changes from Excel macro uploads
-    const interval = setInterval(() => {
-      fetchStations();
-      fetchLastUpload();
-    }, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   const handleRenameStation = async (stationId: number) => {
@@ -302,11 +296,8 @@ export default function DashboardPage() {
 
       {/* Data Table Preview */}
       <section className="glass-card stagger-2">
-        <div className="flex justify-between items-center mb-6">
+        <div className="mb-6">
           <h2 className="text-xl font-semibold text-slate-900">Current Assignments</h2>
-          <button onClick={fetchStations} className="text-slate-600 hover:text-slate-900 transition-colors">
-            <RefreshCw className={`w-5 h-5 ${loadingData ? 'animate-spin' : ''}`} />
-          </button>
         </div>
 
         {userRole === "admin" && stations.length > 0 && (
