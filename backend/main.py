@@ -102,6 +102,10 @@ def station_to_response(station: models.Station, has_percentage: bool = False, h
 
 last_upload_info: dict | None = None
 
+# Cache for stations data (loaded at startup, invalidated on upload)
+stations_cache = None
+qr_stations_cache = None
+
 @app.get("/")
 def read_root():
     return {"message": "Station Management API is running"}
@@ -194,6 +198,12 @@ async def upload_excel(
             "filename": file.filename,
         }
 
+        # Invalidate cache after upload
+        global stations_cache, qr_stations_cache
+        stations_cache = None
+        qr_stations_cache = None
+        print("[UPLOAD] Cache invalidated")
+
         print(f"[UPLOAD] Upload completed successfully: {len(df)} rows processed")
         return {"message": "Data uploaded successfully", "rows_processed": len(df)}
 
@@ -228,6 +238,15 @@ def has_percentage_suffix(station_name: str):
 
 @app.get("/stations")
 def get_stations(db: Session = Depends(get_db)):
+    global stations_cache
+    
+    # Return cached data if available
+    if stations_cache is not None:
+        print("[CACHE] Using cached stations data")
+        return stations_cache
+    
+    print("[CACHE] Cache miss, loading from database")
+    
     # Use eager loading to load assignments and employees in one query
     stations = db.query(models.Station).options(
         joinedload(models.Station.assignments)
@@ -309,11 +328,25 @@ def get_stations(db: Session = Depends(get_db)):
         return (first_order, station_data["name"].lower())
 
     active_stations.sort(key=station_order_key)
+    
+    # Cache the result
+    stations_cache = active_stations
+    print(f"[CACHE] Loaded {len(active_stations)} stations into cache")
+    
     return active_stations
 
 
 @app.get("/qr-stations")
 def get_qr_stations(db: Session = Depends(get_db)):
+    global qr_stations_cache
+    
+    # Return cached data if available
+    if qr_stations_cache is not None:
+        print("[CACHE] Using cached qr-stations data")
+        return qr_stations_cache
+    
+    print("[CACHE] Cache miss for qr-stations, loading from database")
+    
     # Use eager loading to load assignments and employees in one query
     stations = db.query(models.Station).options(
         joinedload(models.Station.assignments)
@@ -391,6 +424,11 @@ def get_qr_stations(db: Session = Depends(get_db)):
         })
 
     result.sort(key=lambda s: (not s["active"], s["name"].lower()))
+    
+    # Cache the result
+    qr_stations_cache = result
+    print(f"[CACHE] Loaded {len(result)} qr-stations into cache")
+    
     return result
 
 @app.get("/stations/{station_id}")
