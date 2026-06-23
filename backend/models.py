@@ -39,7 +39,16 @@ elif SQLALCHEMY_DATABASE_URL.startswith("postgresql"):
     # Supabase requires SSL connection
     if "sslmode" not in SQLALCHEMY_DATABASE_URL:
         SQLALCHEMY_DATABASE_URL = f"{SQLALCHEMY_DATABASE_URL}?sslmode=require"
-    engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, pool_recycle=300)
+    # Additional connection options for Supabase
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args={
+            "connect_timeout": 10,
+            "options": "-c statement_timeout=30000"
+        }
+    )
 else:
     engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"sslmode": "require"})
 
