@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import hashlib
@@ -75,8 +75,8 @@ def build_station_qr_id(station_name: str):
     return f"{slug}-{digest}"
 
 
-def station_to_response(station: models.Station, db: Session, has_percentage: bool = False, has_low_percentage: bool = False):
-    assignments = db.query(models.Assignment).filter(models.Assignment.station_id == station.id).all()
+def station_to_response(station: models.Station, has_percentage: bool = False, has_low_percentage: bool = False):
+    # Use pre-loaded assignments from eager loading
     employees = [
         {
             "id": a.employee.id,
@@ -88,13 +88,9 @@ def station_to_response(station: models.Station, db: Session, has_percentage: bo
             "has_percentage": has_percentage,
             "has_low_percentage": has_low_percentage,
         }
-        for a in assignments
+        for a in station.assignments
     ]
     qr_id = station.qr_id or build_station_qr_id(station.name)
-    if not station.qr_id:
-        station.qr_id = qr_id
-        db.commit()
-        db.refresh(station)
 
     return {
         "id": station.id,
@@ -232,7 +228,11 @@ def has_percentage_suffix(station_name: str):
 
 @app.get("/stations")
 def get_stations(db: Session = Depends(get_db)):
-    stations = db.query(models.Station).order_by(models.Station.id.asc()).all()
+    # Use eager loading to load assignments and employees in one query
+    stations = db.query(models.Station).options(
+        joinedload(models.Station.assignments)
+        .joinedload(models.Assignment.employee)
+    ).order_by(models.Station.id.asc()).all()
     
     # Group stations by normalized name
     grouped_stations = {}
@@ -247,7 +247,7 @@ def get_stations(db: Session = Depends(get_db)):
             else:
                 station_has_percentage = True
         
-        data = station_to_response(station, db, has_percentage=station_has_percentage, has_low_percentage=station_has_low_percentage)
+        data = station_to_response(station, has_percentage=station_has_percentage, has_low_percentage=station_has_low_percentage)
         if data["employees"]:
             normalized_name = normalize_station_name(data["name"])
             if normalized_name not in grouped_stations:
@@ -314,7 +314,11 @@ def get_stations(db: Session = Depends(get_db)):
 
 @app.get("/qr-stations")
 def get_qr_stations(db: Session = Depends(get_db)):
-    stations = db.query(models.Station).order_by(models.Station.name.asc()).all()
+    # Use eager loading to load assignments and employees in one query
+    stations = db.query(models.Station).options(
+        joinedload(models.Station.assignments)
+        .joinedload(models.Assignment.employee)
+    ).order_by(models.Station.name.asc()).all()
     
     # Group stations by normalized name (same logic as /stations)
     grouped_stations = {}
@@ -329,7 +333,7 @@ def get_qr_stations(db: Session = Depends(get_db)):
             else:
                 station_has_percentage = True
         
-        data = station_to_response(station, db, has_percentage=station_has_percentage, has_low_percentage=station_has_low_percentage)
+        data = station_to_response(station, has_percentage=station_has_percentage, has_low_percentage=station_has_low_percentage)
         if data["employees"]:
             normalized_name = normalize_station_name(data["name"])
             if normalized_name not in grouped_stations:
@@ -391,11 +395,15 @@ def get_qr_stations(db: Session = Depends(get_db)):
 
 @app.get("/stations/{station_id}")
 def get_station(station_id: int, db: Session = Depends(get_db)):
-    s = db.query(models.Station).filter(models.Station.id == station_id).first()
+    # Use eager loading to load assignments and employees in one query
+    s = db.query(models.Station).options(
+        joinedload(models.Station.assignments)
+        .joinedload(models.Assignment.employee)
+    ).filter(models.Station.id == station_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Station not found")
 
-    return station_to_response(s, db)
+    return station_to_response(s)
 
 
 @app.patch("/stations/{station_id}")
@@ -420,7 +428,7 @@ def rename_station(station_id: int, payload: RenameStationRequest, db: Session =
     station.name = new_name
     db.commit()
     db.refresh(station)
-    return station_to_response(station, db)
+    return station_to_response(station)
 
 
 @app.delete("/assignments/{assignment_id}")
