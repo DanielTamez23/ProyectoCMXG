@@ -163,14 +163,23 @@ async def upload_excel(
 
             stat = db.query(models.Station).filter(models.Station.name == station_name).first()
             if not stat:
-                stat = models.Station(
-                    name=station_name,
-                    qr_id=build_station_qr_id(station_name),
-                )
-                db.add(stat)
-                db.commit()
-                db.refresh(stat)
-                print(f"[UPLOAD] Created new station: {station_name}")
+                # Check if station exists with same qr_id (different name)
+                qr_id = build_station_qr_id(station_name)
+                stat_by_qr = db.query(models.Station).filter(models.Station.qr_id == qr_id).first()
+                if stat_by_qr:
+                    stat = stat_by_qr
+                    stat.name = station_name
+                    db.commit()
+                    print(f"[UPLOAD] Updated existing station name: {station_name}")
+                else:
+                    stat = models.Station(
+                        name=station_name,
+                        qr_id=qr_id,
+                    )
+                    db.add(stat)
+                    db.commit()
+                    db.refresh(stat)
+                    print(f"[UPLOAD] Created new station: {station_name}")
 
             assignment = models.Assignment(
                 station_id=stat.id,
