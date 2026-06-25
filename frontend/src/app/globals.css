@@ -89,10 +89,10 @@ body {
 .stagger-2 { animation-delay: 0.2s; }
 .stagger-3 { animation-delay: 0.3s; }
 
-/* QR print: one station per page, large centered QR */
+/* QR print: 2 stations per page */
 @media print {
   @page {
-    size: letter portrait;
+    size: letter landscape;
     margin: 0.5in;
   }
 
@@ -120,15 +120,14 @@ body {
     margin: 0 !important;
   }
 
-  .qr-print-page {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
+  .print-page {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 2rem !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 4rem 1rem !important;
     min-height: 100vh !important;
     page-break-after: always !important;
     break-after: page !important;
@@ -137,19 +136,27 @@ body {
     box-sizing: border-box !important;
   }
 
-  .qr-print-page:last-child {
+  .qr-card {
+    border: 4px solid #152C73 !important;
+    border-radius: 1rem !important;
+    padding: 0.125rem !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-page:last-child {
     page-break-after: auto !important;
     break-after: auto !important;
   }
 
   .qr-print-title {
-    font-size: 3.75rem;
-    font-weight: 800;
+    font-size: 1.5rem;
+    font-weight: 700;
     color: #152C73;
     text-align: center;
-    margin-bottom: 3rem;
+    margin-bottom: 0.25rem;
     max-width: 100%;
-    line-height: 1.05;
+    line-height: 1.2;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }

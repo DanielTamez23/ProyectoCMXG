@@ -153,7 +153,7 @@ export default function QRPrintPage() {
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#152C73] mb-2">QR Print Center</h1>
-          <p className="text-slate-600">One large QR per printed page. QR links never change after first creation.</p>
+          <p className="text-slate-600">Two QRs per printed page. QR links never change after first creation.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -309,19 +309,35 @@ export default function QRPrintPage() {
             ))}
           </section>
 
-          {/* Print layout: one station per page, name + large QR only */}
-          <section className="hidden print:block p-2">
-            {filteredStations.map((station, idx) => (
-              <div
-                key={`print-${station.name || station.qr_id || idx}`}
-                className="qr-print-page p-8 box-border rounded-3xl border-8 border-[#00C950] max-w-[680px] mx-auto"
-              >
-                <h2 className="qr-print-title">{station.name}</h2>
-                <div className="mt-6 flex justify-center">
-                  <StationQRCode stationRef={station.qr_id} size={600} fgColor="#000000" />
+          {/* Print layout: 2 stations per page, rotated QRs */}
+          <section className="hidden print:block p-4">
+            {(() => {
+              // Group stations into pairs for 2-per-page layout
+              const pairedStations = [];
+              for (let i = 0; i < filteredStations.length; i += 2) {
+                pairedStations.push(filteredStations.slice(i, i + 2));
+              }
+              return pairedStations.map((pair, pairIdx) => (
+                <div
+                  key={`print-pair-${pairIdx}`}
+                  className="print-page grid grid-cols-2 gap-8 p-8 box-border min-h-[29.7cm] page-break-after"
+                >
+                  {pair.map((station) => (
+                    <div
+                      key={`print-${station.name || station.qr_id}`}
+                      className="qr-card flex flex-col items-center justify-center p-6 border-4 border-[#00C950] rounded-2xl"
+                    >
+                      <h2 className="qr-print-title text-center text-xl font-bold text-[#152C73] mb-2">
+                        {station.name}
+                      </h2>
+                      <div className="flex justify-center mb-1">
+                        <StationQRCode stationRef={station.qr_id} size={350} fgColor="#000000" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ))}
+              ));
+            })()}
           </section>
         </>
       )}
