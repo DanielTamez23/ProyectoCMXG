@@ -16,6 +16,163 @@ models.init_db()
 
 app = FastAPI(title="Station Management API")
 
+@app.on_event("startup")
+async def startup_event():
+    """Load cache at startup to avoid slow first requests"""
+    print("[STARTUP] Loading cache at startup...")
+    db = models.SessionLocal()
+    try:
+        # Load stations cache
+        global stations_cache, qr_stations_cache
+        stations = db.query(models.Station).options(
+            joinedload(models.Station.assignments)
+            .joinedload(models.Assignment.employee)
+        ).order_by(models.Station.id.asc()).all()
+        
+        # Group stations by normalized name
+        grouped_stations = {}
+        for station in stations:
+            percentage_value = has_percentage_suffix(station.name)
+            station_has_percentage = False
+            station_has_low_percentage = False
+            if percentage_value is not None:
+                if percentage_value <= 0.7:
+                    station_has_low_percentage = True
+                else:
+                    station_has_percentage = True
+            
+            data = station_to_response(station, has_percentage=station_has_percentage, has_low_percentage=station_has_low_percentage)
+            if data["employees"]:
+                normalized_name = normalize_station_name(data["name"])
+                if normalized_name not in grouped_stations:
+                    grouped_stations[normalized_name] = {
+                        "name": normalized_name,
+                        "employees": [],
+                        "original_names": set(),
+                    }
+                grouped_stations[normalized_name]["employees"].extend(data["employees"])
+                grouped_stations[normalized_name]["original_names"].add(data["name"])
+        
+        # Build final station list
+        active_stations = []
+        for normalized_name, station_data in grouped_stations.items():
+            is_grouped = len(station_data["original_names"]) > 1
+            
+            unique_employees = {}
+            for emp in station_data["employees"]:
+                if emp["id"] not in unique_employees:
+                    unique_employees[emp["id"]] = emp
+                else:
+                    old_has_percentage = unique_employees[emp["id"]]["has_percentage"]
+                    new_has_percentage = emp["has_percentage"]
+                    merged_has_percentage = old_has_percentage or new_has_percentage
+                    
+                    old_has_low_percentage = unique_employees[emp["id"]]["has_low_percentage"]
+                    new_has_low_percentage = emp["has_low_percentage"]
+                    merged_has_low_percentage = old_has_low_percentage or new_has_low_percentage
+                    
+                    unique_employees[emp["id"]]["has_percentage"] = merged_has_percentage
+                    unique_employees[emp["id"]]["has_low_percentage"] = merged_has_low_percentage
+            
+            station_id = None
+            station_qr_id = None
+            if not is_grouped:
+                original_station = db.query(models.Station).filter(models.Station.name == list(station_data["original_names"])[0]).first()
+                if original_station:
+                    station_id = original_station.id
+                    station_qr_id = original_station.qr_id
+            
+            active_stations.append({
+                "id": station_id,
+                "qr_id": station_qr_id,
+                "name": normalized_name,
+                "employees": list(unique_employees.values()),
+            })
+        
+        def station_order_key(station_data):
+            order_ids = [parse_int_or_max(emp.get("order_id")) for emp in station_data["employees"]]
+            first_order = min(order_ids) if order_ids else 10**9
+            return (first_order, station_data["name"].lower())
+        
+        active_stations.sort(key=station_order_key)
+        stations_cache = active_stations
+        print(f"[STARTUP] Loaded {len(active_stations)} stations into cache")
+        
+        # Load qr-stations cache
+        stations = db.query(models.Station).options(
+            joinedload(models.Station.assignments)
+            .joinedload(models.Assignment.employee)
+        ).order_by(models.Station.name.asc()).all()
+        
+        grouped_stations = {}
+        for station in stations:
+            percentage_value = has_percentage_suffix(station.name)
+            station_has_percentage = False
+            station_has_low_percentage = False
+            if percentage_value is not None:
+                if percentage_value <= 0.7:
+                    station_has_low_percentage = True
+                else:
+                    station_has_percentage = True
+            
+            data = station_to_response(station, has_percentage=station_has_percentage, has_low_percentage=station_has_low_percentage)
+            if data["employees"]:
+                normalized_name = normalize_station_name(data["name"])
+                if normalized_name not in grouped_stations:
+                    grouped_stations[normalized_name] = {
+                        "name": normalized_name,
+                        "employees": [],
+                        "original_names": set(),
+                        "original_qr_ids": set(),
+                    }
+                grouped_stations[normalized_name]["employees"].extend(data["employees"])
+                grouped_stations[normalized_name]["original_names"].add(data["name"])
+                if data["qr_id"]:
+                    grouped_stations[normalized_name]["original_qr_ids"].add(data["qr_id"])
+        
+        result = []
+        for normalized_name, station_data in grouped_stations.items():
+            unique_employees = {}
+            for emp in station_data["employees"]:
+                if emp["id"] not in unique_employees:
+                    unique_employees[emp["id"]] = emp
+                else:
+                    old_has_percentage = unique_employees[emp["id"]]["has_percentage"]
+                    new_has_percentage = emp["has_percentage"]
+                    merged_has_percentage = old_has_percentage or new_has_percentage
+                    
+                    old_has_low_percentage = unique_employees[emp["id"]]["has_low_percentage"]
+                    new_has_low_percentage = emp["has_low_percentage"]
+                    merged_has_low_percentage = old_has_low_percentage or new_has_low_percentage
+                    
+                    unique_employees[emp["id"]]["has_percentage"] = merged_has_percentage
+                    unique_employees[emp["id"]]["has_low_percentage"] = merged_has_low_percentage
+            
+            employee_count = len(unique_employees)
+            is_grouped = len(station_data["original_names"]) > 1
+            if is_grouped:
+                qr_id = normalized_name
+            elif station_data["original_qr_ids"]:
+                qr_id = list(station_data["original_qr_ids"])[0]
+            else:
+                qr_id = build_station_qr_id(normalized_name)
+            
+            result.append({
+                "id": None,
+                "qr_id": qr_id,
+                "name": normalized_name,
+                "employees": list(unique_employees.values()),
+                "active": employee_count > 0,
+                "employee_count": employee_count,
+            })
+        
+        result.sort(key=lambda s: (not s["active"], s["name"].lower()))
+        qr_stations_cache = result
+        print(f"[STARTUP] Loaded {len(result)} qr-stations into cache")
+        
+    finally:
+        db.close()
+
 frontend_origins_env = os.getenv("FRONTEND_ORIGINS", "")
 frontend_origins = [origin.strip() for origin in frontend_origins_env.split(",") if origin.strip()]
 if not frontend_origins:

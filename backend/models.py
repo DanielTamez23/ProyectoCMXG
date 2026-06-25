@@ -59,10 +59,12 @@ def backfill_station_qr_ids():
     import hashlib
     import re
 
-    def build_qr_id(station_name: str) -> str:
+    def build_qr_id(station_name: str, suffix: int = None) -> str:
         normalized = str(station_name).strip().lower()
         slug = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-") or "station"
         digest = hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:8]
+        if suffix is not None and suffix > 0:
+            return f"{slug}-{digest}-{suffix}"
         return f"{slug}-{digest}"
 
     inspector = inspect(engine)
@@ -78,7 +80,15 @@ def backfill_station_qr_ids():
     try:
         stations = db.query(Station).filter(Station.qr_id.is_(None)).all()
         for station in stations:
-            station.qr_id = build_qr_id(station.name)
+            # Try to generate unique qr_id, increment suffix if duplicate
+            suffix = 0
+            while True:
+                proposed_qr_id = build_qr_id(station.name, suffix if suffix > 0 else None)
+                existing = db.query(Station).filter(Station.qr_id == proposed_qr_id).first()
+                if not existing:
+                    station.qr_id = proposed_qr_id
+                    break
+                suffix += 1
         if stations:
             db.commit()
     finally:
