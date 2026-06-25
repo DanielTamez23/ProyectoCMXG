@@ -79,14 +79,22 @@ def backfill_station_qr_ids():
     db = SessionLocal()
     try:
         stations = db.query(Station).filter(Station.qr_id.is_(None)).all()
+        
+        # Track used qr_ids within this batch
+        used_qr_ids = set()
+        
+        # Also track existing qr_ids in database
+        existing_qr_ids = {s.qr_id for s in db.query(Station.qr_id).filter(Station.qr_id.isnot(None)).all()}
+        
         for station in stations:
             # Try to generate unique qr_id, increment suffix if duplicate
             suffix = 0
             while True:
                 proposed_qr_id = build_qr_id(station.name, suffix if suffix > 0 else None)
-                existing = db.query(Station).filter(Station.qr_id == proposed_qr_id).first()
-                if not existing:
+                # Check against both existing in DB and used in this batch
+                if proposed_qr_id not in existing_qr_ids and proposed_qr_id not in used_qr_ids:
                     station.qr_id = proposed_qr_id
+                    used_qr_ids.add(proposed_qr_id)
                     break
                 suffix += 1
         if stations:
